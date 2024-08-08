@@ -31,8 +31,7 @@ class BitArray:
 
 
 class Simulacao:
-    def __init__(self, tipoCodificacao, chanceErro):
-        # Inicializa a camada física adequada
+    def __init__(self, tipoCodificacao, chanceErro, seed=None):
         if tipoCodificacao == 1:
             self.fisicaTransmissora = CamadaFisicaTransmissora()  # Manchester
             self.fisicaReceptora = CamadaFisicaReceptora()
@@ -81,14 +80,18 @@ class Simulacao:
     def meioDeComunicacao(self, fluxoBrutoDeBits):
         tamQuadro = len(fluxoBrutoDeBits)
         fluxoBrutoDeBitsPontoB = [0] * tamQuadro
-        random.seed(time.time())
         for i in range(tamQuadro):
             bit = fluxoBrutoDeBits[i]
-            if random.randint(0, 100) > self.probabilidadeErro:
+            if random.random() > (self.probabilidadeErro / 100.0):
                 fluxoBrutoDeBitsPontoB[i] = bit
             else:
-                fluxoBrutoDeBitsPontoB[i] = -bit if bit != 0 else 1
+                if isinstance(bit, tuple):
+                    # Inverta a fase e a amplitude para simular erro
+                    fluxoBrutoDeBitsPontoB[i] = (-bit[0], -bit[1])
+                else:
+                    fluxoBrutoDeBitsPontoB[i] = -bit if bit != 0 else 1
         self.camadaFisicaReceptora(fluxoBrutoDeBitsPontoB)
+
 
     def camadaFisicaReceptora(self, fluxoBrutoDeBitsPontoB):
         fluxoBrutoDeBits = self.decode(fluxoBrutoDeBitsPontoB)
@@ -98,6 +101,5 @@ class Simulacao:
         mensagem = fluxoBrutoDeBits.toString()
         print("A mensagem recebida foi:", mensagem)
 
-# Exemplo de uso:
-simulacao = Simulacao(tipoCodificacao=6, chanceErro=0)
+simulacao = Simulacao(tipoCodificacao=6, chanceErro=0, seed=42)
 simulacao.camadaDeAplicacaoTransmissora("Boa noiteeeeeeeee ééééé")
