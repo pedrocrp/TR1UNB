@@ -1,59 +1,82 @@
+from BitArray import BitArray
+
 class CamadaEnlaceTransmissora:
-    def __init__(self,detection,correction):
-        match detection:
-            case 1:
-                self.detection = self.parityBit
-                self.detectionSize = 8
-            case 2:
-                self.detection = self.crc32
-                self.detectionSize = 32
-            case 3:
-                self.detection = lambda x:x
-                self.detectionSize = 0
-        self.correction = correction
+    def __init__(self,detectionCorrection):
+        self.detection = []
+        self.detectionSize = 0
+        for n in detectionCorrection:
+            match n:
+                case 1:
+                    self.detection.append(self.parityBit)
+                    self.detectionSize += 8
+                case 2:
+                    self.detection.append(self.crc32)
+                    self.detectionSize += 32
+                case 3:
+                    self.detection.append(lambda x:x)
+        self.correction = 4 in detectionCorrection
         self.hammingBits = 0
 
-    def byteCount(self, maxFrameSize, bit_array):
+    def byteCount(self, maxFrameSize, bit_array, frameStacks, stackedFraming):
         """ byte count framing """
+        realMaxFrameSize = maxFrameSize
+        maxFrameSize -= sum([x[1] for x in frameStacks])
         if maxFrameSize % 8:
             raise(ValueError("Tamanho máximo de quadro inválido."))
         #max count = 0b11111111
         maxFrameSize = min(maxFrameSize,256)
         #one byte for count
         maxFrameSize =  maxFrameSize - 8
-        if self.correction:
+        if self.correction and not stackedFraming:
             #correction limits message size
             maxFrameSize = self.hamming(maxFrameSize)
-        payloadSize = maxFrameSize - self.detectionSize
+        if not stackedFraming:
+            payloadSize = maxFrameSize - self.detectionSize
+        else:
+            payloadSize = maxFrameSize
         nFrames = bit_array.tam() / payloadSize
         nFrames = int(nFrames) if nFrames == int(nFrames) else int(nFrames) + 1
+        frame = []
         frames = []
         for i in range(nFrames):
             payload = bit_array.bits[i * (payloadSize):(i + 1) * (payloadSize)]
-            payload = self.detection(payload)
-            if self.correction:
-                payload = self.hamming(payload)
-            frames.extend([int(bit) for bit in format(len(payload)//8, '08b')])
-            frames.extend(payload)
+            if not stackedFraming:
+                for detection in self.detection:
+                    payload = detection(payload)
+                if self.correction:
+                    payload = self.hamming(payload)
+            frame.extend([int(bit) for bit in format(len(payload)//8, '08b')])
+            frame.extend(payload)
+            if frameStacks:
+                frameAlg = frameStacks[0][0]
+                frame = frameAlg(realMaxFrameSize,BitArray(frame),frameStacks[1:],True)
+            frames.extend(frame)
+            frame = []
         return frames
 
-    def charInsert(self, maxFrameSize, bit_array):
+    def charInsert(self, maxFrameSize, bit_array, frameStacks, stackedFraming):
         """ byte flag insertion framing """
+        realMaxFrameSize = maxFrameSize
+        maxFrameSize -= sum([x[1] for x in frameStacks])
         if maxFrameSize % 8:
             raise(ValueError("Tamanho máximo de quadro inválido."))
         start = 0
+        frame = []
         frames = []
         #flag = unicode tab, esc = unicode esc
         flag = [0,0,0,0,1,0,0,1]
         esc = [0,0,0,1,1,0,1,1]
         #two bytes for flags
         maxFrameSize =  maxFrameSize - 16
-        if self.correction:
+        if self.correction and not stackedFraming:
             #correction limits message size
             maxFrameSize = self.hamming(maxFrameSize)
-        maxPayloadSize = maxFrameSize - self.detectionSize
-        #could be needed to escape all detection and correction bytes
-        maxPayloadSize -= ((self.hammingBits // 8)+(self.detectionSize // 8)) * 8
+        if not stackedFraming:
+            maxPayloadSize = maxFrameSize - self.detectionSize
+            #could be needed to escape all detection and correction bytes
+            maxPayloadSize -= ((self.hammingBits // 8)+(self.detectionSize // 8)) * 8
+        else:
+            maxPayloadSize = maxFrameSize
         while start < bit_array.tam():
             payload = []
             payloadSize = maxPayloadSize
@@ -68,9 +91,11 @@ class CamadaEnlaceTransmissora:
                 else:
                     break
                 start += 8
-            payload = self.detection(payload)
-            if self.correction:
-                payload = self.hamming(payload)
+            if not stackedFraming:
+                for detection in self.detection:
+                    payload = detection(payload)
+                if self.correction:
+                    payload = self.hamming(payload)
             i = 0
             escaped = []
             while i < len(payload):
@@ -79,9 +104,14 @@ class CamadaEnlaceTransmissora:
                 else:
                     escaped.extend(payload[i:i + 8])
                 i += 8
-            frames.extend(flag)
-            frames.extend(escaped)
-            frames.extend(flag)
+            frame.extend(flag)
+            frame.extend(escaped)
+            frame.extend(flag)
+            if frameStacks:
+                frameAlg = frameStacks[0][0]
+                frame = frameAlg(realMaxFrameSize,BitArray(frame),frameStacks[1:],True)
+            frames.extend(frame)
+            frame = []
         return frames
 
     def parityBit(self,bit_list):
