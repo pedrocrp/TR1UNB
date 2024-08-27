@@ -1,4 +1,6 @@
 import customtkinter
+from Simulator import Simulacao
+from BitArray import BitArray
 
 #Define tema e aparencia da interface
 customtkinter.set_appearance_mode("dark")
@@ -20,6 +22,51 @@ protocolosEnlace2 = ["Vazio", "Bit Paridade", "CRC", "Hamming"]
 
 modulacaoDigital = ["Vazio", "NRZ-Polar", "Manchester", "Bipolar"]
 modulacaoPortadora = ["Vazio", "ASK", "FSK", "8-QAM"]
+
+#Funcao para mapear as escolhas da interface para os parametros de simulacao
+def gui_to_sim(choices, entrada, erro, tam_quadro):
+    tipo_codificacao = {
+        "NRZ-Polar": 6, "Manchester": 1, "Bipolar": 2,
+        "ASK": 3, "FSK": 4, "8-QAM": 5
+    }.get(choices[4] if choices[4] != "Vazio" else choices[5], 6) #defaulta no nrz-polar se os 2 estiverem vazios
+
+    tipo_enquadramento = []
+    for choice in choices[:2]:
+        if choice == "Contagem":
+            tipo_enquadramento.append(1)
+        elif choice == "Insercao":
+            tipo_enquadramento.append(2)
+
+    tipo_deteccao_correcao = []
+    for choice in choices[2:5]:
+        if choice == "Bit Paridade":
+            tipo_deteccao_correcao.append(1)
+        elif choice == "CRC":
+            tipo_deteccao_correcao.append(2)
+        elif choice == "Hamming":
+            tipo_deteccao_correcao.append(4)
+        elif choice == "Vazio":
+            tipo_deteccao_correcao.append(3)
+
+    return {
+        "tipoCodificacao": tipo_codificacao,
+        "tipoEnquadramento": tipo_enquadramento,
+        "tipoDeteccaoCorrecao": tipo_deteccao_correcao,
+        "maxTamQuadro": int(tam_quadro),
+        "chanceErro": erro
+    }
+
+#Funcao para executar a simulacao
+def run_simulation():
+    choices, entrada, erro, tam_quadro = choose_protocolos()
+    params = gui_to_sim(choices, entrada, erro, tam_quadro)
+
+    try:
+        simulacao = Simulacao(**params)
+        simulacao.camadaDeAplicacaoTransmissora(entrada)
+        output_label.configure(text="Simulacao concluida com sucesso!")
+    except Exception as e:
+        output_label.configure(text=f"Errona na simulacao: {str(e)}")
 
 
 #Funcao para pegar os valores escolhidos pelo usuario na interface
@@ -127,7 +174,7 @@ labelSlider.grid(row=5, column=1, pady=10)
 
 
 #Botao para confirmar os valores escolhidos
-confirma_protocolo = customtkinter.CTkButton(root, text="Confirmar", command=choose_protocolos)
+confirma_protocolo = customtkinter.CTkButton(root, text="Confirmar", command=run_simulation)
 confirma_protocolo.grid(row=6, column=0, columnspan=2, padx=10, pady=10, sticky="s")
 
 output_label = customtkinter.CTkLabel(master=root, text="", font=("Helvetica", 12))
