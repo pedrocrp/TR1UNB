@@ -1,34 +1,40 @@
-class CamadaEnlaceReceptora:
-    def __init__(self,detection,correction):
-        match detection:
-            case 1:
-                self.detection = self.parityBitCheck
-                self.detectionSize = 8
-            case 2:
-                self.detection = self.crc32Check
-                self.detectionSize = 32
-            case 3:
-                self.detection = lambda x:(True,x)
-                self.detectionSize = 0
-        self.correction = correction
+from BitArray import BitArray
 
-    def byteCountParse(self, bit_array):
+class CamadaEnlaceReceptora:
+    def __init__(self,detectionCorrection):
+        self.detection = []
+        for n in detectionCorrection:
+            match n:
+                case 1:
+                    self.detection.append(self.parityBitCheck)
+                case 2:
+                    self.detection.append(self.crc32Check)
+                case 3:
+                    self.detection.append(lambda x:(True,x))
+        self.correction = 4 in detectionCorrection
+
+    def byteCountParse(self, bit_array, frameStacks, stackedFraming):
         """ parse frame with byte count """
         i, f = 0, 1
         message = []
         while i < bit_array.tam():
             frameSize = int(''.join(map(str,bit_array.bits[i:i + 8])),2)
             frame = bit_array.bits[i + 8:i + 8 + (frameSize * 8)]
-            if self.correction:
-                frame = self.hammingCheck(frame)
-            check, checked = self.detection(frame)
-            print(f"Quadro {f}:" , "correto." if check else "com erro.")
+            if not stackedFraming:
+                if self.correction:
+                    frame = self.hammingCheck(frame)
+                for detection in self.detection:
+                    check, frame = detection(frame)
+                    print(f"Quadro {f}:" , "correto." if check else "com erro.")
             f += 1
-            message.extend(checked)
+            if frameStacks:
+                frameParseAlg = frameStacks[0]
+                frame = frameParseAlg(BitArray(frame),frameStacks[1:],frameStacks[1:] != [])
+            message.extend(frame)
             i += 8 + (frameSize * 8)
         return message
 
-    def charInsertParse(self, bit_array):
+    def charInsertParse(self, bit_array, frameStacks, stackedFraming):
         """ parse frame with flags """
         start, f = 0, 1
         message, frame = [], []
@@ -46,12 +52,17 @@ class CamadaEnlaceReceptora:
                 escaped = False
             elif started and byte == flag and not escaped:
                 started = False
-                if self.correction:
-                    frame = self.hammingCheck(frame)
-                check, checked = self.detection(frame)
-                print(f"Quadro {f}:" , "correto." if check else "com erro.")
+                if not stackedFraming:
+                    if self.correction:
+                        frame = self.hammingCheck(frame)
+                    for detection in self.detection:
+                        check, frame = detection(frame)
+                        print(f"Quadro {f}:" , "correto." if check else "com erro.")
                 f += 1
-                message.extend(checked)
+                if frameStacks:
+                    frameParseAlg = frameStacks[0]
+                    frame = frameParseAlg(BitArray(frame),frameStacks[1:],frameStacks[1:] != [])
+                message.extend(frame)
                 frame = []
             else:
                 print(f"Quadro {f}: Erro em enquadramento.")

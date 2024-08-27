@@ -1,40 +1,12 @@
 import random
+from BitArray import BitArray
 from CamadaFisicaReceptora import CamadaFisicaReceptora
 from CamadaFisicaTransmissora import CamadaFisicaTransmissora
 from CamadaEnlaceReceptora import CamadaEnlaceReceptora
 from CamadaEnlaceTransmissora import CamadaEnlaceTransmissora
 
-class BitArray:
-    def __init__(self, data):
-        if isinstance(data, str):
-            self.bits = [int(bit) for bit in ''.join(format(ord(c), '08b') for c in data)]
-        elif isinstance(data,list) and all([isinstance(x, int) for x in data]):
-            self.bits = data
-        else:
-            raise TypeError("Data can't be converted to BitArray.")
-
-    def tam(self):
-        return len(self.bits)
-
-    def setBit(self, index):
-        self.bits[index] = 1
-
-    def clearBit(self, index):
-        self.bits[index] = 0
-
-    def print(self):
-        print(''.join(map(str, self.bits)))
-
-    def toString(self):
-        chars = [chr(int(''.join(map(str, self.bits[i:i+8])), 2)) for i in range(0, len(self.bits), 8)]
-        return ''.join(chars)
-
-    def __getitem__(self, index):
-        return self.bits[index]
-
-
 class Simulacao:
-    def __init__(self, tipoCodificacao, tipoEnquadramento, tipoDeteccaoErro, correcao, maxTamQuadro, chanceErro):
+    def __init__(self, tipoCodificacao, tipoEnquadramento, tipoDeteccaoCorrecao, maxTamQuadro, chanceErro):
         self.fisicaTransmissora = CamadaFisicaTransmissora()
         self.fisicaReceptora = CamadaFisicaReceptora()
         match tipoCodificacao:
@@ -58,38 +30,48 @@ class Simulacao:
                 self.decode = self.fisicaReceptora.nrz_polar_decode
             case _:
                 raise ValueError("Tipo de codificação inválido. Escolha um valor entre 1 e 6.")
-        match tipoDeteccaoErro:
-            case 1:
-                self.enlaceTransmissora = CamadaEnlaceTransmissora(1,correcao)
-                self.enlaceReceptora = CamadaEnlaceReceptora(1,correcao)
-                #3 bytes: message, 8 parity bits and 5 hamming bits (padded to a byte)
-                self.tamanhoMinQuadro = 24
-            case 2:
-                self.enlaceTransmissora = CamadaEnlaceTransmissora(2,correcao)
-                self.enlaceReceptora = CamadaEnlaceReceptora(2,correcao)
-                #6 bytes: message, 31 bits for crc32 remainder + 1 padding bit and 7 hamming bits (padded to a byte)
-                self.tamanhoMinQuadro = 48
-            case 3:
-                self.enlaceTransmissora = CamadaEnlaceTransmissora(3,correcao)
-                self.enlaceReceptora = CamadaEnlaceReceptora(3,correcao)
-                #2 bytes: message and 3 hamming bits (padded to a byte)
-                self.tamanhoMinQuadro = 16
-            case _:
-                raise ValueError("Tipo de detecção de erro inválido. Escolha um valor entre 1 e 3.")
-        match tipoEnquadramento:
-            case 1: #bytecount
-                self.frame = self.enlaceTransmissora.byteCount
-                self.frameparse = self.enlaceReceptora.byteCountParse
-                #byte with frame size
-                self.tamanhoMinQuadro += 8
-            case 2: #char insert
-                self.frame = self.enlaceTransmissora.charInsert
-                self.frameparse = self.enlaceReceptora.charInsertParse
-                #flags + extreme case where all bytes in frame need to be escaped
-                self.tamanhoMinQuadro += 16 + self.tamanhoMinQuadro
-            case _:
-                raise ValueError("Tipo de enquadramento inválido. Escolha 1 ou 2.")
-
+        self.tamanhoMinQuadro = 8 #one byte
+        for n in tipoDeteccaoCorrecao:
+            match n:
+                case 1:
+                    #8 parity bits
+                    self.tamanhoMinQuadro += 8
+                case 2:
+                    #31 bits for crc32 remainder + 1 padding bit
+                    self.tamanhoMinQuadro += 32
+                case 3:
+                    #no checking
+                    pass
+                case 4:
+                    ones = self.tamanhoMinQuadro.bit_count()
+                    #hamming bits; if minlength is a power of 2, one bit is discarded
+                    hammingBits = self.tamanhoMinQuadro.bit_length() - (1 if ones == 1 else 0)
+                    #pad hammming bits to a length in bytes
+                    if hammingBits % 8 != 0:
+                        self.tamanhoMinQuadro += hammingBits + (8 - (hammingBits % 8))
+                    else:
+                        self.tamanhoMinQuadro += hammingBits
+                case _:
+                    raise ValueError("Tipo de detecção e/ou correção de erro inválido. Escolha um valor entre 1 e 4.")
+        self.enlaceTransmissora = CamadaEnlaceTransmissora(tipoDeteccaoCorrecao)
+        self.enlaceReceptora = CamadaEnlaceReceptora(tipoDeteccaoCorrecao[::-1])
+        self.frame, self.frameparse = [], []
+        for n in tipoEnquadramento:
+            match n:
+                case 1: #bytecount
+                    self.frame.append((self.enlaceTransmissora.byteCount, 8))
+                    self.frameparse.insert(0,self.enlaceReceptora.byteCountParse)
+                    #byte with frame size
+                    self.tamanhoMinQuadro += 8
+                case 2: #char insert
+                    self.frame.append((self.enlaceTransmissora.charInsert,16 + self.tamanhoMinQuadro))
+                    self.frameparse.insert(0,self.enlaceReceptora.charInsertParse)
+                    #flags + extreme case where all bytes in frame need to be escaped
+                    self.tamanhoMinQuadro += 16 + self.tamanhoMinQuadro
+                case _:
+                    raise ValueError("Tipo de enquadramento inválido. Escolha 1 ou 2.")
+        if self.frame == [] or self.frameparse == []:
+            raise ValueError("Tipo de enquadramento não foi provido.")
 
         self.tamanhoMaxQuadro = maxTamQuadro * 8
         if self.tamanhoMaxQuadro < self.tamanhoMinQuadro:
@@ -103,7 +85,8 @@ class Simulacao:
         self.camadaEnlaceTransmissora(mensagem)
 
     def camadaEnlaceTransmissora(self,mensagem):
-        quadros = self.frame(self.tamanhoMaxQuadro,mensagem)
+        frameAlg = self.frame.pop(0)[0]
+        quadros = frameAlg(self.tamanhoMaxQuadro,mensagem,self.frame,False)
         self.camadaFisicaTransmissora(BitArray(quadros))
 
     def camadaFisicaTransmissora(self, quadro):
@@ -131,11 +114,12 @@ class Simulacao:
         self.camadaEnlaceReceptora(BitArray([int(bit) for bit in fluxoBrutoDeBits]))
 
     def camadaEnlaceReceptora(self,quadros):
-        quadros = self.frameparse(quadros)
+        frameParseAlg = self.frameparse.pop(0)
+        quadros = frameParseAlg(quadros,self.frameparse,self.frameparse != [])
         self.camadaDeAplicacaoReceptora(BitArray(quadros))
 
     def camadaDeAplicacaoReceptora(self, mensagem):
         print("A mensagem recebida foi:", mensagem.toString())
 
-simulacao = Simulacao(tipoCodificacao=6, tipoEnquadramento=2, tipoDeteccaoErro=1, correcao = True, maxTamQuadro=15, chanceErro=0)
+simulacao = Simulacao(tipoCodificacao=6, tipoEnquadramento=[2,1,2,1], tipoDeteccaoCorrecao = [1,2,3,3,2], maxTamQuadro=56, chanceErro=0)
 simulacao.camadaDeAplicacaoTransmissora("Boa noi\x09teeee\x1bbeeeee ééééé")
