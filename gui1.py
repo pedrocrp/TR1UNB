@@ -8,6 +8,7 @@ from CamadaFisicaTransmissora import CamadaFisicaTransmissora
 from CamadaFisicaReceptora import CamadaFisicaReceptora
 from CamadaEnlaceTransmissora import CamadaEnlaceTransmissora
 from CamadaEnlaceReceptora import CamadaEnlaceReceptora
+from Simulator import Simulacao
 
 class SimulacaoApp:
     def __init__(self, root):
@@ -68,8 +69,10 @@ class SimulacaoApp:
         self.canvas_frame = ctk.CTkFrame(right_frame)
         self.canvas_frame.pack(fill=ctk.BOTH, expand=True)
 
+
     def texto_para_binario(self, texto):
         return ''.join(format(ord(c), '08b') for c in texto)
+    
 
     def executar_simulacao(self):
         # Coletando as variáveis
@@ -82,6 +85,16 @@ class SimulacaoApp:
         erro = self.chanceErro.get()
         mensagem = self.mensagem.get()
 
+
+
+        simulacao = Simulacao(tipoCodificacao= tipo_digital, 
+                              tipoPortadora= tipo_portadora, 
+                              tipoEnquadramento=[enquadramento], 
+                              tipoDeteccaoCorrecao = [deteccao], 
+                              maxTamQuadro=max_quadro, 
+                              chanceErro=erro)
+        
+
         # Converter a mensagem de texto para binário
         mensagem_binaria = self.texto_para_binario(mensagem)
 
@@ -89,12 +102,12 @@ class SimulacaoApp:
         fisicaTransmissora = CamadaFisicaTransmissora()
 
         # Selecionar a codificação digital e a modulação
-        if tipo_digital == "NRZ-Polar":
-            encoded_signal = fisicaTransmissora.nrz_polar(mensagem_binaria)
-        elif tipo_digital == "Manchester":
-            encoded_signal = fisicaTransmissora.manchester(mensagem_binaria)
-        elif tipo_digital == "Bipolar":
-            encoded_signal = fisicaTransmissora.bipolar(mensagem_binaria)
+        # if tipo_digital == "NRZ-Polar":
+        #     encoded_signal = fisicaTransmissora.nrz_polar(mensagem_binaria)
+        # elif tipo_digital == "Manchester":
+        #     encoded_signal = fisicaTransmissora.manchester(mensagem_binaria)
+        # elif tipo_digital == "Bipolar":
+        #     encoded_signal = fisicaTransmissora.bipolar(mensagem_binaria)
 
         if tipo_portadora == "ASK":
             modulated_signal = fisicaTransmissora.ask(mensagem_binaria)
@@ -103,14 +116,17 @@ class SimulacaoApp:
         elif tipo_portadora == "QAM":
             modulated_signal = fisicaTransmissora.qam(mensagem_binaria)
 
+        simulacao.run_simulator(mensagem)        
+
         # Exibir resultados
         self.resultado_texto.delete("1.0", ctk.END)
-        self.resultado_texto.insert(ctk.END, f"Mensagem Original: {mensagem}\n")
+        self.resultado_texto.insert(ctk.END, f"Mensagem Original: {simulacao.mensagem_original.toString()}\n")
         self.resultado_texto.insert(ctk.END, f"Mensagem Binária: {mensagem_binaria}\n")
-        self.resultado_texto.insert(ctk.END, f"Sinal Codificado ({tipo_digital}): {encoded_signal}\n")
+        self.resultado_texto.insert(ctk.END, f"Sinal Codificado ({tipo_digital}): {simulacao.fluxoBrutoDeBits_transmissora}\n")
+        self.resultado_texto.insert(ctk.END, f"A mensagem recebida foi: {simulacao.quadros_enlace_receptora.toString()}\n")
 
         # Atualizar gráficos
-        self.atualizar_graficos(encoded_signal, modulated_signal)
+        self.atualizar_graficos(simulacao.fluxoBrutoDeBits_transmissora, modulated_signal)
 
     def atualizar_graficos(self, encoded_signal, modulated_signal):
         for widget in self.canvas_frame.winfo_children():

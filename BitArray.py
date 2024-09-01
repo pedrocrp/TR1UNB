@@ -17,7 +17,7 @@ class BitArray:
         self.bits[index] = 0
 
     def print(self):
-        print(''.join(map(str, self.bits)))
+        return (''.join(map(str, self.bits)))
 
     def toString(self):
         chars = [chr(int(''.join(map(str, self.bits[i:i+8])), 2)) for i in range(0, len(self.bits), 8)]
