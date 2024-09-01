@@ -6,31 +6,37 @@ from CamadaEnlaceReceptora import CamadaEnlaceReceptora
 from CamadaEnlaceTransmissora import CamadaEnlaceTransmissora
 
 class Simulacao:
-    def __init__(self, tipoCodificacao, tipoEnquadramento, tipoDeteccaoCorrecao, maxTamQuadro, chanceErro):
+    def __init__(self, tipoCodificacaoDigital, tipoCodificacaoPortadora, tipoEnquadramento, tipoDeteccaoCorrecao, maxTamQuadro, chanceErro):
         self.fisicaTransmissora = CamadaFisicaTransmissora()
         self.fisicaReceptora = CamadaFisicaReceptora()
-        match tipoCodificacao:
+        match tipoCodificacaoDigital:
             case 1: # Manchester
                 self.encode = self.fisicaTransmissora.manchester
                 self.decode = self.fisicaReceptora.manchester_decode
             case 2: # Bipolar
                 self.encode = self.fisicaTransmissora.bipolar
                 self.decode = self.fisicaReceptora.bipolar_decode
-            case 3: # ASK
-                self.encode = self.fisicaTransmissora.ask
-                self.decode = self.fisicaReceptora.ask_decode
-            case 4: # FSK
-                self.encode = self.fisicaTransmissora.fsk
-                self.decode = self.fisicaReceptora.fsk_decode
-            case 5: # QAM
-                self.encode = self.fisicaTransmissora.qam
-                self.decode = self.fisicaReceptora.qam_decode
-            case 6: # NRZ-Polar
+            case 3: # NRZ-Polar
                 self.encode = self.fisicaTransmissora.nrz_polar
                 self.decode = self.fisicaReceptora.nrz_polar_decode
             case _:
-                raise ValueError("Tipo de codificação inválido. Escolha um valor entre 1 e 6.")
+                raise ValueError("Tipo de codificação digital inválido. Escolha um valor entre 1 e 3.")
+
+        match tipoCodificacaoPortadora:
+            case 1: # ASK
+                self.encode = self.fisicaTransmissora.ask
+                self.decode = self.fisicaReceptora.ask_decode
+            case 2: # FSK
+                self.encode = self.fisicaTransmissora.fsk
+                self.decode = self.fisicaReceptora.fsk_decode
+            case 3: # QAM
+                self.encode = self.fisicaTransmissora.qam
+                self.decode = self.fisicaReceptora.qam_decode
+            case _:
+                raise ValueError("Tipo de codificação portadora inválido. Escolha um valor entre 1 e 3.")
+        
         self.tamanhoMinQuadro = 8 #one byte
+
         for n in tipoDeteccaoCorrecao:
             match n:
                 case 1:

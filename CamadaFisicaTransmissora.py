@@ -33,10 +33,25 @@ class CamadaFisicaTransmissora:
                 encoded.append(0)  # '0' is always 0 voltage
         return encoded
 
-    def ask(self, bit_string, amplitude_high=5, amplitude_low=0):
-        """ Amplitude Shift Keying """
+    def ask(self, bit_string, amplitude_high=3, freq_carrier=10, freq_pulse=2, duration=1, sample_rate=1000):
+        """ Amplitude Shift Keying with carrier and pulse frequency """
         self.validate_bit_string(bit_string)
-        return [amplitude_high if bit == '1' else amplitude_low for bit in bit_string]
+
+        t = np.arange(0, duration, 1/sample_rate)
+        carrier_wave = amplitude_high * np.sin(2 * np.pi * freq_carrier * t)
+        
+        # Generate the pulse (square wave) based on the bit_string
+        pulse_wave = np.zeros_like(t)
+        bit_duration = duration / len(bit_string)
+        for i, bit in enumerate(bit_string):
+            start_idx = int(i * bit_duration * sample_rate)
+            end_idx = int((i + 1) * bit_duration * sample_rate)
+            pulse_wave[start_idx:end_idx] = 1 if bit == '1' else 0
+
+        # ASK modulated signal
+        ask_signal = carrier_wave * pulse_wave
+
+        return ask_signal
 
     def fsk(self, bit_string, freq_high=2, freq_low=1, duration=1, sample_rate=100):
         """ Frequency Shift Keying """
