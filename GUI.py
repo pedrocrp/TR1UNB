@@ -173,7 +173,11 @@ class SimulacaoApp:
         self.resultado_texto.insert(ctk.END, f"Sinal Codificado ({tipo_digital}): {simulacao.fluxoBrutoDeBits_transmissora}\n")
         for msg in log:
             self.resultado_texto.insert(ctk.END, f"{msg}\n")
-        self.resultado_texto.insert(ctk.END, f"A mensagem recebida foi: {simulacao.quadros_enlace_receptora.toString()}\n")
+        msg_recebida = simulacao.quadros_enlace_receptora.toString()
+        if msg_recebida:
+            self.resultado_texto.insert(ctk.END, f"A mensagem recebida foi: {msg_recebida}\n")
+        else:
+            self.resultado_texto.insert(ctk.END, "Devido a erros, não foi possível decodificar os bits recebidos.\n")
 
         # Atualizar gráficos
         self.atualizar_graficos(simulacao.fluxoBrutoDeBits_transmissora, modulated_signal)
@@ -181,9 +185,6 @@ class SimulacaoApp:
     def atualizar_graficos(self, encoded_signal, modulated_signal):
         for widget in self.canvas_frame.winfo_children():
             widget.destroy()
-        if self.fig is not None:
-            plt.close(self.fig)
-            plt.close(self.fig2)
 
         # Gráfico do sinal codificado
         self.fig, ax = plt.subplots(figsize=(6, 4))
@@ -208,6 +209,8 @@ class SimulacaoApp:
         canvas2 = FigureCanvasTkAgg(self.fig2, master=self.canvas_frame)
         canvas2.draw()
         canvas2.get_tk_widget().pack(fill=ctk.BOTH, expand=True)
+        plt.close(self.fig)
+        plt.close(self.fig2)
 
 if __name__ == "__main__":
     root = ctk.CTk()

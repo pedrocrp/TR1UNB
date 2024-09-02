@@ -70,7 +70,7 @@ class CamadaEnlaceReceptora:
                 frame = []
             else:
                 self.log["Erro em enquadramento no(s) quadro(s): "].add(f)
-                while byte != flag:
+                while byte != flag and start < bit_array.tam():
                     start += 8
                     byte = bit_array.bits[start:start + 8]
                 if bit_array.bits[start + 8:start + 16] == flag:
