@@ -21,9 +21,9 @@ class Simulacao:
             case "NRZ-Polar": # NRZ-Polar
                 self.encode = self.fisicaTransmissora.nrz_polar
                 self.decode = self.fisicaReceptora.nrz_polar_decode
-        
+
         match tipoPortadora:
-            
+
             case "ASK": # ASK
                 self.encode_portadora = self.fisicaTransmissora.ask
                 self.decode_portadora = self.fisicaReceptora.ask_decode
@@ -33,8 +33,7 @@ class Simulacao:
             case "QAM": # QAM
                 self.encode_portadora = self.fisicaTransmissora.qam
                 self.decode_portadora = self.fisicaReceptora.qam_decode
-            
-        
+
         self.tamanhoMinQuadro = 8 #one byte
 
         for n in tipoDeteccaoCorrecao:
@@ -57,14 +56,12 @@ class Simulacao:
                         self.tamanhoMinQuadro += hammingBits + (8 - (hammingBits % 8))
                     else:
                         self.tamanhoMinQuadro += hammingBits
-                case _:
-                    raise ValueError("Tipo de detecção e/ou correção de erro inválido. Escolha um valor entre 1 e 4.")
         self.enlaceTransmissora = CamadaEnlaceTransmissora(tipoDeteccaoCorrecao)
         self.enlaceReceptora = CamadaEnlaceReceptora(tipoDeteccaoCorrecao[::-1])
         self.frame, self.frameparse = [], []
         for n in tipoEnquadramento:
             match n:
-                case "Byte Count": #bytecount
+                case "Contagem de Bytes": #bytecount
                     self.frame.append((self.enlaceTransmissora.byteCount, 8))
                     self.frameparse.insert(0,self.enlaceReceptora.byteCountParse)
                     #byte with frame size
@@ -74,8 +71,6 @@ class Simulacao:
                     self.frameparse.insert(0,self.enlaceReceptora.charInsertParse)
                     #flags + extreme case where all bytes in frame need to be escaped
                     self.tamanhoMinQuadro += 16 + self.tamanhoMinQuadro
-                case _:
-                    raise ValueError("Tipo de enquadramento inválido. Escolha 1 ou 2.")
         if self.frame == [] or self.frameparse == []:
             raise ValueError("Tipo de enquadramento não foi provido.")
 
@@ -94,42 +89,21 @@ class Simulacao:
         self.quadros_enlace_receptora =  self.camadaEnlaceReceptora(self.fluxoBrutoDeBits_receptora)
         self.camadaDeAplicacaoReceptora(self.quadros_enlace_receptora)
 
-        # print(self.mensagem_original)
-        # print(self.quadros_enlace_transmissora)
-        # print(self.fluxoBrutoDeBits_transmissora)
-        # print(self.fluxoBrutoDeBitsPontoB)
-        # print(self.fluxoBrutoDeBits_receptora)
-        # print(self.quadros_enlace_receptora)
-
-        # self.dict_information = {
-        #     mensagem_original : mensagem_original,
-        #     quadros_enlace_transmissora : quadros_enlace_transmissora,
-        #     fluxoBrutoDeBits_transmissora : fluxoBrutoDeBits_transmissora,
-        #     fluxoBrutoDeBitsPontoB : fluxoBrutoDeBitsPontoB,
-        #     fluxoBrutoDeBits_receptora : fluxoBrutoDeBits_receptora,
-        #     quadros_enlace_receptora : quadros_enlace_receptora
-        # }
-
 
     def camadaDeAplicacaoTransmissora(self, mensagem):
         mensagem = BitArray(mensagem)
-        # print("\nMensagem original: ", end='')
-        # mensagem.print()
         return mensagem
-        self.camadaEnlaceTransmissora(mensagem)
 
 
     def camadaEnlaceTransmissora(self,mensagem):
         frameAlg = self.frame.pop(0)[0]
         quadros = frameAlg(self.tamanhoMaxQuadro,mensagem,self.frame,False)
         return quadros
-        self.camadaFisicaTransmissora(BitArray(quadros))
 
 
     def camadaFisicaTransmissora(self, quadro):
         fluxoBrutoDeBits = self.encode(''.join(map(str, quadro.bits)))
         return fluxoBrutoDeBits
-        self.meioDeComunicacao(fluxoBrutoDeBits)
 
 
     def meioDeComunicacao(self, fluxoBrutoDeBits):
@@ -146,28 +120,19 @@ class Simulacao:
                 else:
                     fluxoBrutoDeBitsPontoB[i] = -bit if bit != 0 else 1
         return fluxoBrutoDeBitsPontoB
-        self.camadaFisicaReceptora(fluxoBrutoDeBitsPontoB)
 
 
     def camadaFisicaReceptora(self, fluxoBrutoDeBitsPontoB):
         fluxoBrutoDeBits = self.decode(fluxoBrutoDeBitsPontoB)
         return BitArray([int(bit) for bit in fluxoBrutoDeBits])
-        self.camadaEnlaceReceptora(BitArray([int(bit) for bit in fluxoBrutoDeBits]))
 
-    
+
     def camadaEnlaceReceptora(self,quadros):
         frameParseAlg = self.frameparse.pop(0)
         quadros = frameParseAlg(quadros,self.frameparse,self.frameparse != [])
         return BitArray(quadros)
-        self.camadaDeAplicacaoReceptora(BitArray(quadros))
 
-    
+
     def camadaDeAplicacaoReceptora(self, mensagem):
         print(mensagem.print())
         print("A mensagem recebida foi:", mensagem.toString())
-
-
-# simulacao = Simulacao(tipoCodificacao=1, tipoPortadora= 1, tipoEnquadramento=[2,1,2,1], tipoDeteccaoCorrecao = [1,2,3,3,2], maxTamQuadro=56, chanceErro=0.0)
-# simulacao.run_simulator("Boa noi\x09teeee\x1bbeeeee ééééé")
-
-
