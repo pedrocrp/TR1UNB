@@ -2,16 +2,20 @@ from BitArray import BitArray
 
 class CamadaEnlaceReceptora:
     def __init__(self,detectionCorrection):
+        self.log = {m:s for m, s in zip(["Erro em enquadramento no(s) quadro(s): ",
+                                         "Erro em dois ou mais bits detectado no(s) quadro(s) :",
+                                         "Quadro(s) corrigido(s) :","Erro(s) detectado(s) no(s) quadro(s): "],
+                                        [set() for i in range(5)])}
         self.detection = []
         for n in detectionCorrection:
             match n:
-                case 1:
+                case "Paridade":
                     self.detection.append(self.parityBitCheck)
-                case 2:
+                case "CRC-32":
                     self.detection.append(self.crc32Check)
-                case 3:
+                case "Nenhum":
                     self.detection.append(lambda x:(True,x))
-        self.correction = 4 in detectionCorrection
+        self.correction = "Hamming" in detectionCorrection
 
     def byteCountParse(self, bit_array, frameStacks, stackedFraming):
         """ parse frame with byte count """
@@ -22,10 +26,10 @@ class CamadaEnlaceReceptora:
             frame = bit_array.bits[i + 8:i + 8 + (frameSize * 8)]
             if not stackedFraming:
                 if self.correction:
-                    frame = self.hammingCheck(frame)
+                    frame = self.hammingCheck(frame,f)
                 for detection in self.detection:
                     check, frame = detection(frame)
-                    print(f"Quadro {f}:" , "correto." if check else "com erro.")
+                    self.log["Erro(s) detectado(s) no(s) quadro(s): "].add(f) if not check else None
             f += 1
             if frameStacks:
                 frameParseAlg = frameStacks[0]
@@ -54,10 +58,10 @@ class CamadaEnlaceReceptora:
                 started = False
                 if not stackedFraming:
                     if self.correction:
-                        frame = self.hammingCheck(frame)
+                        frame = self.hammingCheck(frame,f)
                     for detection in self.detection:
                         check, frame = detection(frame)
-                        print(f"Quadro {f}:" , "correto." if check else "com erro.")
+                    self.log["Erro(s) detectado(s) no(s) quadro(s): "].add(f) if not check else None
                 f += 1
                 if frameStacks:
                     frameParseAlg = frameStacks[0]
@@ -65,7 +69,7 @@ class CamadaEnlaceReceptora:
                 message.extend(frame)
                 frame = []
             else:
-                print(f"Quadro {f}: Erro em enquadramento.")
+                self.log["Erro em enquadramento no(s) quadro(s): "].add(f)
                 while byte != flag:
                     start += 8
                     byte = bit_array.bits[start:start + 8]
@@ -99,7 +103,7 @@ class CamadaEnlaceReceptora:
         crc_bit_list = [int(bit) for bit in crc_bit_string]
         return crc_bit_list == [0 for i in range(31)], data[:-32]
 
-    def hammingCheck(self,data):
+    def hammingCheck(self,data,f):
         """ check for errors and correct one bit errors with hamming code """
         ones = len(data).bit_count()
         #hamming bits; if len(data) is a power of 2, one bit is discarded
@@ -123,8 +127,8 @@ class CamadaEnlaceReceptora:
             hamming = int(''.join(map(str,hamming[::-1])),2)
             hamming = hamming - (hamming.bit_length() + 1)
             if hamming < len(data):
-                print("Quadro corrigido.")
+                self.log["Quadro(s) corrigido(s) :"].add(f)
                 data[hamming] ^= 1
             else:
-                print("Erro em dois ou mais bits detectado no quadro.")
+                self.log["Erro em dois ou mais bits detectado no(s) quadro(s) :"].add(f)
         return data

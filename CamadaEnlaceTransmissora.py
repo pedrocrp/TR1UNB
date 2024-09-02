@@ -6,15 +6,15 @@ class CamadaEnlaceTransmissora:
         self.detectionSize = 0
         for n in detectionCorrection:
             match n:
-                case 1:
+                case "Paridade":
                     self.detection.append(self.parityBit)
                     self.detectionSize += 8
-                case 2:
+                case "CRC-32":
                     self.detection.append(self.crc32)
                     self.detectionSize += 32
-                case 3:
+                case "Nenhum":
                     self.detection.append(lambda x:x)
-        self.correction = 4 in detectionCorrection
+        self.correction = "Hamming" in detectionCorrection
         self.hammingBits = 0
 
     def byteCount(self, maxFrameSize, bit_array, frameStacks, stackedFraming):
