@@ -87,7 +87,6 @@ class Simulacao:
         self.fluxoBrutoDeBitsPontoB = self.meioDeComunicacao(self.fluxoBrutoDeBits_transmissora)
         self.fluxoBrutoDeBits_receptora = self.camadaFisicaReceptora(self.fluxoBrutoDeBitsPontoB)
         self.quadros_enlace_receptora =  self.camadaEnlaceReceptora(self.fluxoBrutoDeBits_receptora)
-        self.camadaDeAplicacaoReceptora(self.quadros_enlace_receptora)
 
 
     def camadaDeAplicacaoTransmissora(self, mensagem):
@@ -131,8 +130,3 @@ class Simulacao:
         frameParseAlg = self.frameparse.pop(0)
         quadros = frameParseAlg(quadros,self.frameparse,self.frameparse != [])
         return BitArray(quadros)
-
-
-    def camadaDeAplicacaoReceptora(self, mensagem):
-        print(mensagem.print())
-        print("A mensagem recebida foi:", mensagem.toString())
