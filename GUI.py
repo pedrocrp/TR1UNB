@@ -2,6 +2,7 @@ import customtkinter as ctk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
+from scipy.interpolate import UnivariateSpline
 
 # Importar as classes necessárias
 from CamadaFisicaTransmissora import CamadaFisicaTransmissora
@@ -173,7 +174,9 @@ class SimulacaoApp:
         self.resultado_texto.insert(ctk.END, f"Sinal Codificado ({tipo_digital}): {simulacao.fluxoBrutoDeBits_transmissora}\n")
         for msg in log:
             self.resultado_texto.insert(ctk.END, f"{msg}\n")
+       
         msg_recebida = simulacao.quadros_enlace_receptora.toString()
+     
         if msg_recebida:
             self.resultado_texto.insert(ctk.END, f"A mensagem recebida foi: {msg_recebida}\n")
         else:
@@ -188,7 +191,8 @@ class SimulacaoApp:
 
         # Gráfico do sinal codificado
         self.fig, ax = plt.subplots(figsize=(6, 4))
-        ax.step(range(len(encoded_signal)), encoded_signal, where='mid', label="Sinal Codificado")
+        # ax.step(range(len(encoded_signal)), encoded_signal, where='mid')
+        ax.step(range(50), encoded_signal[:50], where='mid') # Diminuido o tamanho para ficar melhor de visualizar o gráfico
         ax.set_title("Sinal Codificado")
         ax.set_xlabel("Tempo")
         ax.set_ylabel("Amplitude")
@@ -198,9 +202,14 @@ class SimulacaoApp:
         canvas.draw()
         canvas.get_tk_widget().pack(fill=ctk.BOTH, expand=True)
 
-        # Gráfico do sinal modulado
+        # Suavizando o sinal modulado
+        x = np.arange(len(modulated_signal))
+        spl = UnivariateSpline(x, modulated_signal, s=5)  
+        modulated_signal_smooth = spl(x)
+
+        # Gráfico do sinal modulado suavizado
         self.fig2, ax2 = plt.subplots(figsize=(6, 4))
-        ax2.plot(modulated_signal, label="Sinal Modulado")
+        ax2.plot(modulated_signal_smooth)
         ax2.set_title("Sinal Modulado")
         ax2.set_xlabel("Tempo")
         ax2.set_ylabel("Amplitude")
@@ -209,6 +218,7 @@ class SimulacaoApp:
         canvas2 = FigureCanvasTkAgg(self.fig2, master=self.canvas_frame)
         canvas2.draw()
         canvas2.get_tk_widget().pack(fill=ctk.BOTH, expand=True)
+
         plt.close(self.fig)
         plt.close(self.fig2)
 

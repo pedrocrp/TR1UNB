@@ -26,13 +26,10 @@ class Simulacao:
 
             case "ASK": # ASK
                 self.encode_portadora = self.fisicaTransmissora.ask
-                self.decode_portadora = self.fisicaReceptora.ask_decode
             case "FSK": # FSK
                 self.encode_portadora = self.fisicaTransmissora.fsk
-                self.decode_portadora = self.fisicaReceptora.fsk_decode
             case "QAM": # QAM
                 self.encode_portadora = self.fisicaTransmissora.qam
-                self.decode_portadora = self.fisicaReceptora.qam_decode
 
         self.tamanhoMinQuadro = 8 #one byte
 
@@ -87,6 +84,7 @@ class Simulacao:
         self.fluxoBrutoDeBitsPontoB = self.meioDeComunicacao(self.fluxoBrutoDeBits_transmissora)
         self.fluxoBrutoDeBits_receptora = self.camadaFisicaReceptora(self.fluxoBrutoDeBitsPontoB)
         self.quadros_enlace_receptora =  self.camadaEnlaceReceptora(self.fluxoBrutoDeBits_receptora)
+        # self.camadaDeAplicacaoReceptora(self.quadros_enlace_receptora)
 
 
     def camadaDeAplicacaoTransmissora(self, mensagem):
@@ -114,7 +112,7 @@ class Simulacao:
                 fluxoBrutoDeBitsPontoB[i] = bit
             else:
                 if isinstance(bit, tuple):
-                    # Inverta a fase e a amplitude para simular erro
+                    # Inverte a fase e a amplitude para simular erro
                     fluxoBrutoDeBitsPontoB[i] = (-bit[0], -bit[1])
                 else:
                     fluxoBrutoDeBitsPontoB[i] = -bit if bit != 0 else 1
@@ -130,3 +128,8 @@ class Simulacao:
         frameParseAlg = self.frameparse.pop(0)
         quadros = frameParseAlg(quadros,self.frameparse,self.frameparse != [])
         return BitArray(quadros)
+
+
+    # def camadaDeAplicacaoReceptora(self, mensagem):
+    #     print(mensagem.print())
+    #     print("A mensagem recebida foi:", mensagem.toString())
